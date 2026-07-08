@@ -29,7 +29,7 @@ try {
   );
 } catch (e) {  }
 
-var ACCESS_PASSWORD = "northstar2024"; // change this string to set a new gate password
+var ACCESS_PASSWORD = "aku jagoan neon bang"; // change this string to set a new gate password
 
 const QUESTIONS = [
 

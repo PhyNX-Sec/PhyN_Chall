@@ -16,7 +16,7 @@ xdg-open index.html   # or: open index.html
 start index.html
 ```
 
-On first load you'll be prompted for the access password (default: `northstar2024`). After unlocking, all progress is saved to `localStorage` and persists across page refreshes.
+On first load you'll be prompted for the access password. After unlocking, all progress is saved to `localStorage` and persists across page refreshes.
 
 ## Changing the Password
 
@@ -25,9 +25,8 @@ The access password is a single line near the top of the inline `<script>` block
 ```javascript
 // ====================================================================
 // ACCESS PASSWORD — Change this single line to set a new password.
-// Current default: "northstar2024"
 // ====================================================================
-var ACCESS_PASSWORD = "northstar2024";
+var ACCESS_PASSWORD = "aku jagoan neon bang";
 ```
 
 Replace the value between the quotes with whatever you want, save, and reopen. The change takes effect immediately on next page load.
