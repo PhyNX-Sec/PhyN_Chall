@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Operation NorthStar — DFIR CTF Challenge</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:#0a0a0f;color:#c0c0c0;font:15px/1.7 "Courier New",Consolas,monospace;margin:0;min-height:100vh}
+a{color:#00ff88;text-decoration:none}
+a:hover{color:#fff}
+
+.gate{position:fixed;inset:0;background:#0a0a0f;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-box{background:#111118;border:2px solid #00ccff33;border-radius:10px;padding:40px 36px;max-width:440px;width:100%;text-align:center;box-shadow:0 0 60px #00ccff22}
+.gate-icon{font-size:56px;margin-bottom:8px;display:block;filter:drop-shadow(0 0 12px #00ff88)}
+.gate-title{color:#00ccff;font-size:22px;letter-spacing:3px;margin:10px 0 4px;font-weight:bold}
+.gate-sub{color:#666;font-size:12px;margin-bottom:24px;letter-spacing:1px}
+.gate-input{width:100%;background:#0a0a14;border:1px solid #00ccff44;color:#00ff88;padding:12px 16px;border-radius:5px;font:15px "Courier New",monospace;letter-spacing:2px;text-align:center;margin-bottom:14px;outline:none;transition:.2s}
+.gate-input:focus{border-color:#00ff88;box-shadow:0 0 12px #00ff8844}
+.gate-input.error{border-color:#ff6b6b;animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.gate-btn{width:100%;background:#1a3a2a;color:#00ff88;border:2px solid #00ff8866;padding:12px 24px;border-radius:5px;cursor:pointer;font:bold 14px "Courier New",monospace;letter-spacing:3px;transition:.2s}
+.gate-btn:hover{background:#2a4a3a;border-color:#00ff88;box-shadow:0 0 16px #00ff8844}
+.gate-err{color:#ff6b6b;font-size:13px;margin-top:14px;min-height:18px;letter-spacing:1px}
+.gate-hint{margin-top:18px;color:#444;font-size:11px}
+
+.scorebar{position:sticky;top:0;background:#111118cc;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid #00ccff44;padding:12px 20px;z-index:100;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.scorebar .score{color:#00ccff;font-weight:bold;font-size:16px;white-space:nowrap}
+.scorebar .score span{color:#00ff88;font-size:18px}
+.scorebar .prog-wrap{flex:1;min-width:200px;background:#0a0a14;border:1px solid #222;border-radius:10px;height:14px;overflow:hidden;position:relative}
+.scorebar .prog-fill{height:100%;background:linear-gradient(90deg,#00ccff,#00ff88);width:0%;transition:width .5s ease;box-shadow:0 0 8px #00ff88}
+.scorebar button{background:#1a1a2e;color:#00ccff;border:1px solid #00ccff44;padding:6px 14px;border-radius:4px;cursor:pointer;font:12px "Courier New",monospace;transition:.2s}
+.scorebar button:hover{background:#00ccff22;border-color:#00ccff}
+.scorebar button.danger{color:#ff6b6b;border-color:#ff6b6b44}
+.scorebar button.danger:hover{background:#ff6b6b22;border-color:#ff6b6b}
+
+.container{max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+.header{text-align:center;border-bottom:2px solid #00ccff;padding-bottom:24px;margin-bottom:24px}
+.header h1{color:#00ccff;font-size:26px;letter-spacing:4px;margin:8px 0 4px}
+.header .sub{color:#888;font-size:13px;margin:6px 0 14px;letter-spacing:1px}
+.header .meta{color:#666;font-size:12px;display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.header .meta strong{color:#aaa}
+
+.badge{display:inline-block;padding:2px 10px;border-radius:3px;font-weight:bold;font-size:11px;letter-spacing:.5px}
+.badge-h{background:#ff6b6b33;color:#ff6b6b;border:1px solid #ff6b6b}
+.badge-m{background:#ffd70033;color:#ffd700;border:1px solid #ffd700}
+
+.briefing{background:#111118;border:1px solid #222;border-radius:8px;padding:22px 26px;margin-bottom:24px;line-height:1.85}
+.briefing p{margin-bottom:14px}
+.briefing p:last-child{margin-bottom:0}
+.briefing strong{color:#00ccff}
+
+.toc{background:#111118;border:1px solid #222;border-radius:8px;padding:18px 24px;margin-bottom:24px}
+.toc h2{color:#00ccff;font-size:15px;margin:0 0 12px;letter-spacing:1px}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+.toc a{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;border-radius:3px;transition:.2s;color:#888}
+.toc a:hover{background:#1a2a1a;color:#fff;padding-left:12px}
+.toc a .qnum{color:#00ccff;font-weight:bold;min-width:32px}
+.toc a .qtitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toc a .qicon{color:#555;font-size:14px}
+.toc a.solved{color:#00ff88}
+.toc a.solved .qicon{color:#00ff88}
+.toc a.wrong{color:#ff6b6b}
+.toc a.wrong .qicon{color:#ff6b6b}
+
+.card{background:#111118;border:1px solid #222;border-radius:8px;margin-bottom:14px;overflow:hidden;transition:.2s}
+.card:hover{border-color:#00ccff44}
+.card.open{border-color:#00ccff66}
+.card.correct{border-color:#00ff8866;box-shadow:0 0 12px #00ff8822}
+.card.wrong{border-color:#ff6b6b66}
+
+.card-hdr{padding:14px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;gap:12px;transition:.2s}
+.card-hdr:hover{background:#16162a}
+.card-num{color:#00ccff;font-weight:bold;font-size:13px;white-space:nowrap;min-width:38px}
+.card-title{flex:1;color:#e0e0e0;font-size:14px}
+.card-diff{padding:3px 10px;border-radius:3px;font-size:10px;font-weight:bold;text-transform:uppercase;white-space:nowrap}
+.card-status{font-size:18px;width:24px;text-align:center;flex-shrink:0}
+.card.correct .card-status{color:#00ff88}
+.card.wrong .card-status{color:#ff6b6b}
+.card:not(.open) .card-body{display:none}
+.card-body{padding:0 22px 20px;border-top:1px solid #222}
+
+.q-text{color:#b0b0b0;padding:14px 0;line-height:1.9;font-size:14px;white-space:pre-line}
+.q-meta{display:flex;gap:20px;padding:10px 0;font-size:12px;color:#666;border-bottom:1px solid #222;flex-wrap:wrap}
+.q-meta strong{color:#888}
+
+.ans-sect{margin-top:16px;padding-top:14px;border-top:1px dashed #222}
+.ans-label{color:#00ccff;font-size:12px;letter-spacing:1px;margin-bottom:8px}
+.ans-row{display:flex;gap:8px;flex-wrap:wrap}
+.ans-input{flex:1;min-width:200px;background:#0a0a14;border:1px solid #00ccff44;color:#00ff88;padding:10px 14px;border-radius:4px;font:14px "Courier New",monospace;letter-spacing:1px;outline:none;transition:.2s}
+.ans-input:focus{border-color:#00ff88;box-shadow:0 0 8px #00ff8833}
+.ans-input:disabled{background:#0a0a0a;color:#666;cursor:not-allowed}
+.ans-input.correct{border-color:#00ff88;background:#0d1a0d;color:#00ff88}
+.ans-input.wrong{border-color:#ff6b6b;background:#1a0d0d;color:#ff6b6b}
+.ans-btn{background:#1a3a1a;color:#00ff88;border:1px solid #00ff8855;padding:10px 22px;border-radius:4px;cursor:pointer;font:bold 12px "Courier New",monospace;letter-spacing:1.5px;transition:.2s;white-space:nowrap}
+.ans-btn:hover:not(:disabled){background:#2a4a2a;box-shadow:0 0 8px #00ff8844}
+.ans-btn:disabled{background:#1a1a1a;color:#555;border-color:#333;cursor:not-allowed}
+
+.feedback{margin-top:12px;padding:12px 16px;border-radius:4px;font-size:13px;display:none;line-height:1.6}
+.feedback.show{display:block}
+.feedback.correct{background:#0d1a0d;border:1px solid #00ff8855;color:#00ff88}
+.feedback.wrong{background:#1a0d0d;border:1px solid #ff6b6b55;color:#ff8888}
+.feedback .user-strike{text-decoration:line-through;opacity:.7}
+.feedback .label{font-weight:bold;letter-spacing:1px;display:inline-block;margin-bottom:4px}
+.feedback.wrong .label{color:#ff8888}
+.feedback.correct .label{color:#00ff88}
+.feedback .tip{display:block;margin-top:8px;padding:6px 10px;background:#0d0d1a;border-left:2px solid #00ccff;font-size:12px;color:#a0b0c0;font-style:italic}
+.feedback .lock-msg{display:block;margin-top:8px;padding:8px 12px;background:#1a0d0d;border:1px solid #ff6b6b55;border-radius:3px;font-size:12px;color:#ffb0b0}
+
+.attempts{display:inline-block;margin-bottom:8px;padding:3px 10px;font-size:11px;background:#0a0a14;border:1px solid #222;border-radius:3px;letter-spacing:1px;font-family:"Courier New",monospace}
+.attempts-label{color:#666}
+.attempts-num{color:#00ccff;font-weight:bold;margin-left:6px}
+.attempts.locked{border-color:#ff6b6b55;background:#1a0d0d}
+.attempts.locked .attempts-num{color:#ff6b6b}
+.attempts.locked::after{content:" \1F512";filter:grayscale(.3)}
+
+.feedback .writeup-toggle{margin-top:10px;background:#1a1a2e;color:#00ccff;border:1px solid #00ccff44;padding:6px 14px;border-radius:3px;cursor:pointer;font:12px "Courier New",monospace;display:inline-block;transition:.2s}
+.feedback .writeup-toggle:hover{background:#2a2a3e;border-color:#00ccff}
+.feedback .writeup-toggle.showed{color:#888;border-color:#333}
+
+.wu-ctn{margin-top:14px;background:#0d0d1a;border:1px solid #00ccff44;border-radius:5px;padding:18px;font-size:13px;line-height:1.8;display:none}
+.wu-ctn.show{display:block}
+.wu-ctn h4{color:#00ccff;margin:12px 0 8px;font-size:13px;letter-spacing:1px;border-bottom:1px solid #00ccff22;padding-bottom:4px}
+.wu-ctn h4:first-child{margin-top:0}
+.wu-ctn ol,.wu-ctn ul{margin:6px 0 6px 22px;color:#b0b0b0}
+.wu-ctn li{margin:4px 0}
+.wu-ctn p{color:#b0b0b0;margin:6px 0}
+.wu-ctn pre{background:#0a0a14;border:1px solid #333;border-radius:3px;padding:12px 14px;color:#00ff88;font:12px "Courier New",monospace;overflow-x:auto;margin:8px 0;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.tip-box{background:#1a2a1a;border-left:3px solid #00ff88;padding:10px 14px;margin-top:12px;border-radius:0 4px 4px 0;font-size:13px;color:#a0d0a0}
+.tip-box strong{color:#00ff88}
+.writeup-locked{background:#1a1a1a;border:1px dashed #444;border-radius:4px;padding:10px 14px;margin-top:12px;font-size:12px;color:#666;text-align:center;letter-spacing:.5px}
+
+.modal-overlay{position:fixed;inset:0;background:#000000dd;z-index:10000;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.show{display:flex}
+.modal{background:#111118;border:2px solid #00ccff66;border-radius:12px;padding:40px 36px;max-width:480px;width:100%;text-align:center;box-shadow:0 0 80px #00ccff44}
+.modal h2{color:#00ccff;letter-spacing:3px;margin:0 0 8px;font-size:24px}
+.modal .score-display{font-size:64px;font-weight:bold;color:#00ff88;margin:20px 0 8px;letter-spacing:2px;text-shadow:0 0 20px #00ff8866}
+.modal .score-total{color:#666;font-size:14px;margin-bottom:18px}
+.modal .verdict{color:#ffd700;font-size:18px;letter-spacing:2px;margin-bottom:24px;line-height:1.5}
+.modal .verdict.perfect{color:#00ff88}
+.modal .verdict.excellent{color:#00ccff}
+.modal .verdict.good{color:#ffd700}
+.modal .verdict.learning{color:#ff6b6b}
+.modal-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.modal-btns button{background:#1a1a2e;color:#00ccff;border:1px solid #00ccff66;padding:10px 22px;border-radius:4px;cursor:pointer;font:bold 12px "Courier New",monospace;letter-spacing:1.5px;transition:.2s}
+.modal-btns button:hover{background:#00ccff22}
+.modal-btns button.primary{background:#1a3a2a;color:#00ff88;border-color:#00ff88}
+.modal-btns button.primary:hover{background:#2a4a3a}
+
+.footer{text-align:center;color:#444;padding:40px 20px 20px;font-size:11px;border-top:1px solid #1a1a2e;margin-top:30px;letter-spacing:1px}
+.footer .reset-link{color:#ff6b6b88;cursor:pointer;text-decoration:underline;margin-top:6px;display:inline-block}
+.footer .reset-link:hover{color:#ff6b6b}
+
+@media(max-width:768px){
+  .container{padding:16px 10px 40px}
+  .header h1{font-size:20px}
+  .gate-title{font-size:18px}
+  .gate-box{padding:28px 22px}
+  .card-hdr{flex-wrap:wrap}
+  .card-title{font-size:13px}
+  .card-num{min-width:30px;font-size:12px}
+  .scorebar{padding:8px 12px;gap:10px}
+  .scorebar .score{font-size:13px}
+  .scorebar .prog-wrap{min-width:120px}
+  .modal .score-display{font-size:48px}
+}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <span class="gate-icon">🔒</span>
+    <div class="gate-title">OPERATION NORTHSTAR</div>
+    <div class="gate-sub">CLASSIFIED — AUTHENTICATION REQUIRED</div>
+    <form id="gateForm" autocomplete="off">
+      <input type="password" id="gateInput" class="gate-input" placeholder="Enter access password" autofocus aria-label="Password">
+      <button type="submit" class="gate-btn">UNLOCK</button>
+    </form>
+    <div class="gate-err" id="gateErr"></div>
+    <div class="gate-hint">Press ENTER to submit</div>
+  </div>
+</div>
+
+<div class="scorebar" id="scorebar" style="display:none">
+  <div class="score">SCORE: <span id="scoreNum">0</span> / 20</div>
+  <div class="prog-wrap"><div class="prog-fill" id="progFill"></div></div>
+  <button onclick="expandAll()">Expand All</button>
+  <button onclick="collapseAll()">Collapse All</button>
+  <button class="danger" onclick="resetAll()">Reset</button>
+</div>
+
+<div class="container" id="main" style="display:none">
+  <div class="header">
+    <h1>OPERATION NORTHSTAR</h1>
+    <div class="sub">DFIR CTF Challenge</div>
+    <div class="meta">
+      <span>Author: <strong>PhyN</strong></span>
+      <span>Difficulty: <span class="badge badge-m">Medium</span></span>
+      <span>Questions: <strong>20</strong> (<span class="badge badge-m">11 Medium</span>+<span class="badge badge-h">9 Hard</span>)</span>
+      <span>Date: <strong>2026-07-08</strong></span>
+    </div>
+  </div>
+
+  <div class="briefing">
+    <p>On the afternoon of 10 September 2024, the NorthStar Branch office — a satellite facility operating under the <strong>northstar-branch.local</strong> domain — experienced a sophisticated multi-stage intrusion that progressed from external reconnaissance through web application exploitation, credential harvesting, internal lateral movement, and ultimately data exfiltration to external cloud services. The organisation's perimeter firewall, an intrusion detection system, internal proxy server, and endpoint monitoring infrastructure collectively preserved a comprehensive evidence trail spanning a six-hour collection window commencing at <strong>1300 UTC</strong>.</p>
+    <p>Your task as the lead incident responder is to reconstruct the entire attack chain: identify the initial access vector, trace credential abuse patterns, map the lateral movement pathways, quantify the scope of data loss, and establish attribution indicators. The evidence at your disposal encompasses host-level telemetry, network sensor exports, perimeter control records, and application access logs across <strong>eleven distinct data sources</strong>. Work through the evidence methodically — the adversary left behind no fewer than twenty forensic artefacts that demand your attention.</p>
+  </div>
+
+  <div class="toc">
+    <h2>Question Index</h2>
+    <div class="toc-grid" id="tocGrid"></div>
+  </div>
+
+  <div class="card" id="q1" data-qid="1">
+      <div class="card-hdr" onclick="toggleCard(1)">
+        <span class="card-num">Q_1</span>
+        <span class="card-title">The Inaugural Alarm</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="1">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Perimeter intrusion detection sensors began flagging anomalous activity mere minutes into the collection window. The very first alert, a generic ICMP echo probe directed at the organisation's public-facing IP address, originated from an external host that would later be implicated in far more consequential activity, including web application exploitation attempts classified at elevated severity. Subsequent examination of the intrusion detection log confirms that this same address triggered a Priority 1 signature for SQL injection approximately two and a half hours later. Identify the source IP address responsible for this inaugural detection event.</div>
+        <div class="q-meta"><span><strong>Format:</strong> X.X.X.X</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="1" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="1" placeholder="Enter your answer..." aria-label="Answer for Q_1" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="1">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="1"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q2" data-qid="2">
+      <div class="card-hdr" onclick="toggleCard(2)">
+        <span class="card-num">Q_2</span>
+        <span class="card-title">The Scanner's Fingerprint</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="2">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Approximately forty minutes after the initial ICMP probes subsided, an automated vulnerability assessment tool commenced a systematic enumeration of the organisation's web-facing application. The scanner's signature was unmistakably embedded within the HTTP User-Agent header of every probe request, revealing both the tool's identity and its precise version number. The operator made no effort to conceal the scanner through evasion parameters, leaving the tool's full identifier plainly visible in access logs. Provide the exact tool name and version as it appeared in the request headers.</div>
+        <div class="q-meta"><span><strong>Format:</strong> Text</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="2" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="2" placeholder="Enter your answer..." aria-label="Answer for Q_2" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="2">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="2"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q3" data-qid="3">
+      <div class="card-hdr" onclick="toggleCard(3)">
+        <span class="card-num">Q_3</span>
+        <span class="card-title">The Backdoor Gambit</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="3">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Intrusion detection systems assign severity classifications to each signature based on the potential impact of the detected activity. During the vulnerability scanning phase, a specific signature triggered at the maximum priority level — Priority 1 — indicating an attempt to access a well-known web-based database administration interface frequently targeted by attackers seeking to compromise backend database systems. The source address responsible for this alert had already been observed conducting wide-ranging enumeration of the web server's directory structure. Determine the IP address that prompted this highest-severity detection.</div>
+        <div class="q-meta"><span><strong>Format:</strong> X.X.X.X</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="3" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="3" placeholder="Enter your answer..." aria-label="Answer for Q_3" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="3">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="3"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q4" data-qid="4">
+      <div class="card-hdr" onclick="toggleCard(4)">
+        <span class="card-num">Q_4</span>
+        <span class="card-title">The Configuration Lure</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="4">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">As the automated scanner traversed the web application directory structure, one particular probe targeted a file conventionally employed by modern web frameworks to store environment-specific configuration parameters — values that frequently include database connection strings, API encryption keys, and third-party service credentials. The intrusion detection platform generated a dedicated signature for this probe, while the web server access record confirmed a GET request for the very same resource. What external IP address was responsible for this sensitive configuration file access attempt?</div>
+        <div class="q-meta"><span><strong>Format:</strong> X.X.X.X</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="4" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="4" placeholder="Enter your answer..." aria-label="Answer for Q_4" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="4">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="4"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q5" data-qid="5">
+      <div class="card-hdr" onclick="toggleCard(5)">
+        <span class="card-num">Q_5</span>
+        <span class="card-title">The Token Forge</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="5">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Having moved beyond passive reconnaissance, the adversary identified and actively exploited an application programming interface endpoint whose sole purpose was to issue authentication bearer tokens to legitimate service consumers. A series of POST requests directed at this endpoint returned HTTP 200 status codes accompanied by substantial response bodies — in one instance exceeding forty-six kilobytes — containing what circumstantial evidence strongly suggests were valid session tokens. Specify the complete URI path of the authentication endpoint that was abused for credential harvesting.</div>
+        <div class="q-meta"><span><strong>Format:</strong> Text</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="5" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="5" placeholder="Enter your answer..." aria-label="Answer for Q_5" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="5">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="5"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q6" data-qid="6">
+      <div class="card-hdr" onclick="toggleCard(6)">
+        <span class="card-num">Q_6</span>
+        <span class="card-title">The Automation Signature</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="6">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">The requests targeting the token issuance endpoint exhibited a distinctive characteristic that categorically distinguished them from organic browser traffic: their User-Agent header identified a programme library commonly employed for constructing HTTP requests in Python-based automation scripts. This library — the de facto standard for HTTP operations in the Python ecosystem — is ubiquitous in data science workflows and, regrettably, in countless offensive security toolkits. Its presence in an API call originating from outside the organisation's network perimeter is diagnostically abnormal. Provide the complete User-Agent string used by the token-harvesting actor.</div>
+        <div class="q-meta"><span><strong>Format:</strong> Text</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="6" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="6" placeholder="Enter your answer..." aria-label="Answer for Q_6" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="6">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="6"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q7" data-qid="7">
+      <div class="card-hdr" onclick="toggleCard(7)">
+        <span class="card-num">Q_7</span>
+        <span class="card-title">The Silent Acknowledgment</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="7">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Every successful exploitation attempt imprints a trail of HTTP status codes that document the server's disposition toward each request. When the external actor submitted a POST to the authentication endpoint from an address never previously associated with the organisation's API consumers, the server responded not with a 401 Unauthorised — which would indicate insufficient credentials — nor with a 403 Forbidden — which would suggest explicit denial — but with a code signifying that the request had been processed and its payload delivered successfully. What three-digit HTTP status code did the server return to this unauthorised token request?</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="7" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="7" placeholder="Enter your answer..." aria-label="Answer for Q_7" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="7">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="7"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q8" data-qid="8">
+      <div class="card-hdr" onclick="toggleCard(8)">
+        <span class="card-num">Q_8</span>
+        <span class="card-title">The Unlikely Courier</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="8">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Several hours into the incident, network telemetry captured a sequence of API calls that superficially appeared indistinguishable from legitimate application traffic. However, closer inspection of the source addressing revealed that these requests emanated from an internal workstation — a host residing squarely within the corporate LAN — using a command-line HTTP client typically reserved for server-side scripting. No legitimate business process would route workstation-originated curl requests directly against DMZ-hosted API endpoints. Trace the pivot to its origin: to which IP address was this workstation assigned?</div>
+        <div class="q-meta"><span><strong>Format:</strong> X.X.X.X</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="8" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="8" placeholder="Enter your answer..." aria-label="Answer for Q_8" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="8">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="8"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q9" data-qid="9">
+      <div class="card-hdr" onclick="toggleCard(9)">
+        <span class="card-num">Q_9</span>
+        <span class="card-title">The Phantom Operator</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="9">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">As the adversary attempted to extend their reach deeper into the internal infrastructure, endpoint telemetry documented a failed remote access attempt traversing a path that should never exist in normal operations. The connection originated from the DMZ web server and targeted the internal proxy server over SSH. The authentication attempt presented a username that does not correspond to any provisioned account in the organisation's identity directory — a string that reads as though it were a default or placeholder credential. What username was submitted during this unsuccessful SSH authentication?</div>
+        <div class="q-meta"><span><strong>Format:</strong> Text</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="9" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="9" placeholder="Enter your answer..." aria-label="Answer for Q_9" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="9">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="9"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q10" data-qid="10">
+      <div class="card-hdr" onclick="toggleCard(10)">
+        <span class="card-num">Q_10</span>
+        <span class="card-title">The Corporate Gatekeeper</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="10">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">The organisation's forward proxy — a Squid deployment mediating all outbound web traffic — maintained an access control policy that explicitly forbade connections to certain categories of websites. During the incident window, an authenticated user who had been implicated in extensive SSH pivot activity attempted to establish a CONNECT tunnel to a social news aggregation and discussion platform, only to have the request met with a hard denial. The proxy access record documents both the user's identity and the proxy action taken. What destination hostname was explicitly rejected by the corporate proxy policy?</div>
+        <div class="q-meta"><span><strong>Format:</strong> domain.ltd</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="10" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="10" placeholder="Enter your answer..." aria-label="Answer for Q_10" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="10">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="10"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q11" data-qid="11">
+      <div class="card-hdr" onclick="toggleCard(11)">
+        <span class="card-num">Q_11</span>
+        <span class="card-title">The Dual Identity</span>
+        <span class="card-diff badge-m">Medium</span>
+        <span class="card-status" data-status="11">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">The adversary employed multiple authentication mechanisms when pivoting from the compromised workstation to the DMZ infrastructure. Examining SSH daemon records reveals that different public key algorithms — and consequently different cryptographic identities — were presented during successful authentication events across the two target servers. This suggests either the compromise of multiple private keys or a deliberate operational security practice of using distinct credentials for each target. How many unique SSH public key algorithms were utilised across all successful key-based authentications originating from the internal workstation?</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="11" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="11" placeholder="Enter your answer..." aria-label="Answer for Q_11" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="11">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="11"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q12" data-qid="12">
+      <div class="card-hdr" onclick="toggleCard(12)">
+        <span class="card-num">Q_12</span>
+        <span class="card-title">The Perimeter Rejected</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="12">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">The web server's host-based firewall — a Linux netfilter implementation enforcing an ingress deny-by-default policy — silently discarded unsolicited connection attempts throughout the incident window. Connection requests from various external source addresses targeting an array of well-known service ports were intercepted and blocked at this boundary. How many distinct, globally routable external IP addresses — excluding RFC 1918 private address space — were summarily rejected by the server's UFW subsystem over the course of the entire collection period?</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="12" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="12" placeholder="Enter your answer..." aria-label="Answer for Q_12" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="12">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="12"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q13" data-qid="13">
+      <div class="card-hdr" onclick="toggleCard(13)">
+        <span class="card-num">Q_13</span>
+        <span class="card-title">The Injection Courier</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="13">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Among the numerous intrusion detection signatures triggered throughout the incident, the Unified Snort Alert for Structured Query Language injection — specifically a UNION SELECT variant — represented one of the most severe threats to the application data layer. This technique enables an attacker to append arbitrary queries to a vulnerable input parameter, potentially exposing the entire contents of backend database tables. The signature was classified at Priority 1, the highest severity tier in the Emerging Threats ruleset. The source address responsible had been active since the earliest moments of the collection window, having first appeared as the originator of an ICMP probe. Identify the IP address behind this critical injection attempt.</div>
+        <div class="q-meta"><span><strong>Format:</strong> X.X.X.X</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="13" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="13" placeholder="Enter your answer..." aria-label="Answer for Q_13" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="13">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="13"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q14" data-qid="14">
+      <div class="card-hdr" onclick="toggleCard(14)">
+        <span class="card-num">Q_14</span>
+        <span class="card-title">The Data Drain</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="14">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Once the attacker had established a conduit for extracting information from the backend systems, they executed a sequence of POST requests against the application's primary data retrieval endpoint. Each successful invocation returned a substantive response body to an external address, effectively siphoning structured information out of the organisation's web-facing infrastructure. Individual payloads ranged from approximately ten thousand to upwards of forty-two thousand bytes. Calculate the aggregate volume — in bytes — of all response bodies returned through the /api/v1/data endpoint to POST requests that concluded with an HTTP 200 status code during the incident window.</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="14" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="14" placeholder="Enter your answer..." aria-label="Answer for Q_14" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="14">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="14"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q15" data-qid="15">
+      <div class="card-hdr" onclick="toggleCard(15)">
+        <span class="card-num">Q_15</span>
+        <span class="card-title">The Service Cycle</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="15">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Post-exploitation activity on the compromised web server included the execution of a specific system administration command whose invocation during an active intrusion is diagnostically significant. This command terminated and reinitialised the daemon responsible for remote administrative shell access — a manoeuvre that would accomplish the dual objective of activating any configuration changes surreptitiously introduced into the daemon's configuration directory while simultaneously severing any forensic monitoring instruments that had attached to the daemon process. Provide the exact command line that was executed to restart this critical service.</div>
+        <div class="q-meta"><span><strong>Format:</strong> command line</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="15" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="15" placeholder="Enter your answer..." aria-label="Answer for Q_15" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="15">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="15"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q16" data-qid="16">
+      <div class="card-hdr" onclick="toggleCard(16)">
+        <span class="card-num">Q_16</span>
+        <span class="card-title">The Firewall's Silent Witness</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="16">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">The Cisco ASA perimeter firewall maintained a detailed connection table throughout the incident window, logging the establishment and teardown of every TCP session that traversed the security boundary. When a connection initiator sends a SYN packet but receives no response — or when the response is filtered before reaching the initiator — the firewall records a specific teardown reason in its syslog output. Throughout the incident window, a considerable number of inbound connection attempts terminated in this manner, as external scanners probed ports that were not open on the destination server. How many TCP connections were torn down by the firewall with a &quot;SYN Timeout&quot; disposition?</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="16" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="16" placeholder="Enter your answer..." aria-label="Answer for Q_16" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="16">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="16"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q17" data-qid="17">
+      <div class="card-hdr" onclick="toggleCard(17)">
+        <span class="card-num">Q_17</span>
+        <span class="card-title">The Proxy Sentinel</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="17">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Midway through the incident window, a service account with elevated privileges initiated a command that cycled the corporate proxy daemon, a Squid instance responsible for mediating all outbound web traffic from the internal network. Restarting this service would transiently disrupt connectivity for every internal user while simultaneously applying any configuration modifications that had been placed in the daemon's configuration hierarchy. The timing of this restart, occurring during a period of heightened SSH pivot activity, warrants investigation into whether the proxy configuration was deliberately altered to facilitate data exfiltration through previously restricted channels. What username was recorded as the initiator of this service restart?</div>
+        <div class="q-meta"><span><strong>Format:</strong> Text</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="17" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="17" placeholder="Enter your answer..." aria-label="Answer for Q_17" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="17">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="17"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q18" data-qid="18">
+      <div class="card-hdr" onclick="toggleCard(18)">
+        <span class="card-num">Q_18</span>
+        <span class="card-title">The Defensive Reconnaissance</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="18">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Shell command history recovered from the internal proxy server revealed that an authenticated operator devoted substantial effort to examining the server's network security configuration. Among the reconnaissance commands executed was a specific invocation of the Linux netfilter administration tool that enumerated every active firewall rule in purely numeric format — suppressing Domain Name System resolution to accelerate execution — thereby exposing the complete ingress and egress access control list governing the host's network interfaces. Reproduce the exact command line employed for this firewall ruleset inspection.</div>
+        <div class="q-meta"><span><strong>Format:</strong> command line</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="18" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="18" placeholder="Enter your answer..." aria-label="Answer for Q_18" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="18">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="18"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q19" data-qid="19">
+      <div class="card-hdr" onclick="toggleCard(19)">
+        <span class="card-num">Q_19</span>
+        <span class="card-title">The Exfiltration Sum</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="19">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">Throughout the incident, the adversary employed two distinct API endpoints — one designed for data retrieval and another for event ingestion — to extract structured information from the web application's backend systems. Each successful POST request returned a response body to an address outside the organisation's network perimeter, with individual payloads spanning from several hundred to over forty-six thousand bytes. Establishing the precise extent of data loss is essential for regulatory disclosure assessments, stakeholder notification, and downstream forensic scoping. What is the combined total volume — expressed in bytes — of all successful POST response bodies served through the /api/v1/data and /api/v2/events endpoints?</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="19" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="19" placeholder="Enter your answer..." aria-label="Answer for Q_19" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="19">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="19"></div>
+        </div>
+      </div>
+    </div>
+<div class="card" id="q20" data-qid="20">
+      <div class="card-hdr" onclick="toggleCard(20)">
+        <span class="card-num">Q_20</span>
+        <span class="card-title">The Detection Catalogue</span>
+        <span class="card-diff badge-h">Hard</span>
+        <span class="card-status" data-status="20">○</span>
+      </div>
+      <div class="card-body">
+        <div class="q-text">The intrusion detection system maintained by the organisation's perimeter security infrastructure issued alerts throughout the incident window, cataloguing each detection event with a unique three-component signature identifier in the format gid:sid:rev — representing the generator identifier, signature identifier, and revision number, respectively. These signatures spanned diverse threat categories, from generic ICMP events and reconnaissance scanning to specific web application attack patterns. How many distinct signature identifiers — counting unique gid:sid:rev tuples — appeared in the intrusion detection log over the full six-hour collection period?</div>
+        <div class="q-meta"><span><strong>Format:</strong> integer</span></div>
+        <div class="ans-sect">
+          <div class="ans-label">SUBMIT YOUR ANSWER</div>
+          <form class="ans-form" data-qid="20" autocomplete="off">
+            <div class="ans-row">
+              <input type="text" class="ans-input" data-input="20" placeholder="Enter your answer..." aria-label="Answer for Q_20" spellcheck="false" autocapitalize="off">
+              <button type="submit" class="ans-btn" data-btn="20">SUBMIT</button>
+            </div>
+          </form>
+          <div class="feedback" data-feedback="20"></div>
+        </div>
+      </div>
+    </div>
+
+  <div class="card" id="completion-card" style="display:none;text-align:center;background:linear-gradient(135deg,#111118,#1a1a2e);border:2px solid #00ff8866;margin-top:24px">
+    <div class="card-hdr" style="cursor:default;background:transparent">
+      <span class="card-num" style="color:#00ff88">★</span>
+      <span class="card-title" style="color:#00ff88;font-size:16px;letter-spacing:2px">CHALLENGE COMPLETE</span>
+      <span class="card-diff" style="background:#00ff8833;color:#00ff88;border:1px solid #00ff88">DONE</span>
+      <span class="card-status" style="color:#00ff88">✓</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by DFIR CTF Generator — All log data is synthetically generated for training purposes.<br>
+    <span class="reset-link" onclick="resetAll()">Clear all progress &amp; reset challenge</span>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>CHALLENGE COMPLETE</h2>
+    <div class="score-display" id="modalScore">0 / 20</div>
+    <div class="score-total">Final Score</div>
+    <div class="verdict" id="modalVerdict"></div>
+    <div class="modal-btns">
+      <button onclick="reviewAnswers()">Review Answers</button>
+      <button class="primary" onclick="restartChallenge()">Restart Challenge</button>
+    </div>
+  </div>
+</div>
+
+<script src="challenge.js"></script>
+</body>
+</html>
